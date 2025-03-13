@@ -6,23 +6,23 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gaugeJS"></script>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px; 
-            background-color: #121212; 
-            color: #e0e0e0; 
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #121212;
+            color: #e0e0e0;
             overflow-x: hidden;
         }
-        canvas { 
-            max-width: 100vw; 
-            margin-top: 20px; 
+        canvas {
+            max-width: 100vw;
+            margin-top: 20px;
         }
-        .chart-container { 
-            margin-bottom: 20px; 
-            height: 300px; 
-            background-color: #1e1e1e; 
-            padding: 10px; 
-            border-radius: 12px; 
+        .chart-container {
+            margin-bottom: 20px;
+            height: 300px;
+            background-color: #1e1e1e;
+            padding: 10px;
+            border-radius: 12px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
         }
         .gauges {
@@ -64,7 +64,7 @@
 </head>
 <body class="bg-gray-900 text-white p-6">
     <h1 class="text-3xl font-bold mb-6 text-center">Air Quality Data Visualization</h1>
-    
+
     <div class="flex items-center space-x-4 mb-4">
         <label for="duration">Duration:</label>
         <select id="duration" class="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1">
@@ -165,17 +165,17 @@
                     const displayedValues = values.filter((_, index) => index % labelInterval === 0);
 
                     let canvas = document.getElementById(metric + 'Chart');
-                    
+
                     if (!canvas) {  // Create canvas only if it doesn't exist
                         const canvasWrapper = document.createElement('div');
                         canvasWrapper.className = 'chart-container';
-                        
+
                         canvas = document.createElement('canvas');
                         canvas.id = metric + 'Chart';
-                        canvas.style.maxWidth = '100vw';   
-                        canvas.style.width = '100%';       
-                        canvas.style.height = '300px';     
-                        
+                        canvas.style.maxWidth = '100vw';
+                        canvas.style.width = '100%';
+                        canvas.style.height = '300px';
+
                         canvasWrapper.appendChild(canvas);
                         chartsContainer.appendChild(canvasWrapper);
                     }
@@ -205,12 +205,12 @@
                             options: {
                                 maintainAspectRatio: false,
                                 responsive: true,
-                                plugins: { 
+                                plugins: {
                                     legend: { display: true },
-                                    tooltip: { enabled: true } 
+                                    tooltip: { enabled: true }
                                 },
                                 scales: {
-                                    x: { 
+                                    x: {
                                         display: true,
                                         ticks: { autoSkip: true, maxTicksLimit: maxLabels }
                                     }

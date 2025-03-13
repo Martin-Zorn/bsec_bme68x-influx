@@ -1,4 +1,5 @@
-src/*
+bin/*
+lib/*
 bsec_bme68x
 bsec_iaq.config
 bsec_iaq.state
