@@ -88,36 +88,29 @@ def get_data():
     return jsonify(data)
 
 
-@app.route("/api/stream")
-def stream():
-    def event_stream():
-        while True:
-            query = f'''
-            from(bucket: "{INFLUXDB_BUCKET}")
-              |> range(start: -10s)
-              |> filter(fn: (r) => r._measurement == "air_quality" and r.device == "bme68x")
-              |> last()
-            '''
-            result = query_api.query(org=INFLUXDB_ORG, query=query)
+@app.route("/api/latest")
+def get_latest_data():
+    """
+    Polling API to return the latest air quality metrics.
+    """
+    query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
+      |> range(start: -10s)
+      |> filter(fn: (r) => r._measurement == "air_quality" and r.device == "bme68x")
+      |> last()
+    '''
 
-            latest_data = {}
-            for table in result:
-                for record in table.records:
-                    metric = record.get_field()
-                    value = record.get_value()
-                    if metric in ["IAQ", "Temperature", "Humidity"]:
-                        latest_data[metric] = value
+    result = query_api.query(org=INFLUXDB_ORG, query=query)
 
-            if latest_data:
-                # Log the data to see what's being sent
-                print("Sending data via SSE:", latest_data)
-                yield f"data: {json.dumps(latest_data)}\n\n"
-            else:
-                print("No new data found.")
+    latest_data = {}
+    for table in result:
+        for record in table.records:
+            metric = record.get_field()
+            value = record.get_value()
+            if metric in ["IAQ", "Temperature", "Humidity"]:
+                latest_data[metric] = value
 
-            time.sleep(4)
-
-    return Response(event_stream(), content_type="text/event-stream")
+    return jsonify(latest_data)
 
 
 @app.route("/static/<path:filename>")
