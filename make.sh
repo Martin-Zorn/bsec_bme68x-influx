@@ -9,7 +9,7 @@ if [ ! -d "${BSEC_DIR}" ]; then
   exit 1
 fi
 
-STATEFILE="./bsec_iaq.state"
+STATEFILE="./bin/bsec_iaq.state"
 if [ ! -f "${STATEFILE}" ]; then
   touch "${STATEFILE}"
 fi
@@ -38,11 +38,11 @@ gcc -Wall -Wno-unused-but-set-variable -Wno-unused-variable -static \
     ${BSEC_DIR}/examples/BSEC_Integration_Examples/src/bme68x/bme68x.c \
     ${BSEC_DIR}/examples/BSEC_Integration_Examples/src/bme68x/bme68x_defs.h \
     ${BSEC_DIR}/examples/BSEC_Integration_Examples/examples/bsec_iot_example/bsec_integration.c \
-    ./bsec_bme68x.c \
+    ./src/bsec_bme68x.c \
   -L"${BSEC_DIR}/algo/${BSEC_SOLUTION}/bin/${BSEC_PLATFORM}/${BSEC_ARCH}" -lalgobsec \
   -lm -lrt \
-  -o bsec_bme68x
+  -o ./bin/bsec_bme68x
 echo 'Compiled.'
 
-cp ${BSEC_DIR}/algo/${BSEC_SOLUTION}/config/${BSEC_SENSOR}/${BSEC_SENSOR_CONFIG}/bsec_iaq.config .
+cp ${BSEC_DIR}/algo/${BSEC_SOLUTION}/config/${BSEC_SENSOR}/${BSEC_SENSOR_CONFIG}/bsec_iaq.config ./bin
 echo 'Copied config.'
