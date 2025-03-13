@@ -11,7 +11,7 @@ Here you can find a complete small application, which uses the [Bosch Sensortec 
 * [BSEC Library](https://www.bosch-sensortec.com/software-tools/software/bme680-software-bsec/)
 
 # Building besc_bme68x
-Please download the [BSEC Library](https://www.bosch-sensortec.com/software-tools/software/bsec/) to `./src`.
+Please download the [BSEC Library](https://www.bosch-sensortec.com/software-tools/software/bsec/) to `./lib`.
 Configure build with the make.config.
 Use the make.sh to patch and build the binary.
 
@@ -23,4 +23,3 @@ Please add your credentials to bsec_bme68x-influx.ini.
 
 ## Systemd Service
 ---!>
-
