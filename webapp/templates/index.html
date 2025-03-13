@@ -60,7 +60,7 @@
             margin-top: 10px;
         }
     </style>
-    <link rel="icon" id="dynamic-favicon" href="" type="image/webp">
+    <link rel="icon" id="dynamic-favicon" href="/static/good.webp" type="image/webp">
 </head>
 <body class="bg-gray-900 text-white p-6">
     <h1 class="text-3xl font-bold mb-6 text-center">Air Quality Data Visualization</h1>
@@ -327,26 +327,60 @@
             favicon.href = filePath;
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        async function fetchLatestData() {
+            try {
+                const response = await fetch("/api/latest");
+                if (!response.ok) throw new Error("Network response was not OK");
+
+                const data = await response.json();
+                console.log("Latest Data Received:", data);  // Debugging output
+
+                // Ensure gauges are initialized before updating
+                if (!iaqGauge || !temperatureGauge || !humidityGauge) {
+                    console.warn("Gauges not initialized yet, initializing now...");
+                    initializeGauges();
+                }
+
+                // Debugging: Check received data values
+                console.log("Updating Gauges with:", JSON.stringify(data));
+
+                // Update Gauges
+                if (data.IAQ !== undefined) {
+                    updateGauge(iaqGauge, data.IAQ);
+                    document.getElementById("IAQValue").textContent = data.IAQ.toFixed(2);
+                } else {
+                    console.warn("IAQ data missing from API response");
+                }
+
+                if (data.Temperature !== undefined) {
+                    updateGauge(temperatureGauge, data.Temperature);
+                    document.getElementById("TemperatureValue").textContent = data.Temperature.toFixed(2);
+                } else {
+                    console.warn("Temperature data missing");
+                }
+
+                if (data.Humidity !== undefined) {
+                    updateGauge(humidityGauge, data.Humidity);
+                    document.getElementById("HumidityValue").textContent = data.Humidity.toFixed(2);
+                } else {
+                    console.warn("Humidity data missing");
+                }
+
+                // Update Favicon (if IAQ is valid)
+                if (data.IAQ !== undefined) updateFavicon(data.IAQ);
+
+            } catch (error) {
+                console.error("Error fetching latest data:", error);
+            }
+        }
+
+        // Poll every 10 seconds
+        setInterval(fetchLatestData, 10000);
+
+        // Ensure gauges initialize on page load
+        window.addEventListener("load", () => {
             initializeGauges();
-
-            const eventSource = new EventSource('/api/stream');
-
-            eventSource.onopen = function() {
-                console.log("EventSource connection opened.");
-            };
-
-            eventSource.onerror = function(error) {
-                console.error("EventSource connection error:", error);
-            };
-
-            eventSource.onmessage = function(event) {
-                console.log("Received data via SSE:", event.data);
-                const data = JSON.parse(event.data);
-
-                if (data.IAQ) updateFavicon(data.IAQ);
-                updateGauges(data);
-            };
+            fetchLatestData();  // Fetch data once immediately
         });
     </script>
 </body>
