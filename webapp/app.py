@@ -30,6 +30,17 @@ client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN)
 query_api = client.query_api()
 
 
+def ms_to_duration(ms):
+    """Convert milliseconds to InfluxDB duration string"""
+    seconds = int(ms) // 1000
+    if seconds >= 3600:  # 1 hour or more
+        return f"{seconds // 3600}h"
+    elif seconds >= 60:  # 1 minute or more
+        return f"{seconds // 60}m"
+    else:
+        return f"{seconds}s"
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -127,13 +138,16 @@ def export_data():
     Export data as CSV file
     """
     duration = request.args.get("duration", "-1h")
-    interval = request.args.get("interval", "1m")
+    interval = request.args.get("interval", "60000")  # Default 1 minute in ms
+    
+    # Convert milliseconds to InfluxDB duration
+    interval_duration = ms_to_duration(interval)
 
     query = f'''
     from(bucket: "{INFLUXDB_BUCKET}")
       |> range(start: {duration})
       |> filter(fn: (r) => r._measurement == "air_quality" and r.device == "bme68x")
-      |> aggregateWindow(every: {interval}, fn: mean, createEmpty: false)
+      |> aggregateWindow(every: {ms_to_duration(interval)}, fn: mean, createEmpty: false)
       |> yield(name: "mean")
     '''
 
