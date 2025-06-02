@@ -1,154 +1,398 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
     <title>Air Quality Data</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1e1e1e">
+    <meta name="description" content="Luftqualitäts-Monitoring mit BME68X Sensor">
+    
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" id="dynamic-favicon" href="/static/good.webp" type="image/webp">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192x192.png">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gaugeJS"></script>
     <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f4f6;
+            --text-primary: #111827;
+            --text-secondary: #374151;
+            --accent: #3b82f6;
+            --chart-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent: #3b82f6;
+            --chart-bg: #1e1e1e;
+        }
+
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
-            background-color: #121212;
-            color: #e0e0e0;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
             overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
+
         canvas {
             max-width: 100vw;
             margin-top: 20px;
         }
+
         .chart-container {
             margin-bottom: 20px;
             height: 300px;
-            background-color: #1e1e1e;
+            background-color: var(--bg-secondary);
             padding: 10px;
             border-radius: 12px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
         }
+
         .gauges {
             display: flex;
             justify-content: center;
             gap: 20px;
             margin-bottom: 30px;
         }
+
         .gauge-container {
             text-align: center;
             margin-bottom: 20px;
         }
+
         .gauge-container h3 {
             margin-top: 0;
-            color: #e0e0e0;
+            color: var(--text-primary);
         }
 
         .gauge-container span {
             font-weight: bold;
             color: #a0e0e0;
         }
+
         select, button {
-            background-color: #1e1e1e;
-            color: #e0e0e0;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
             border: 1px solid #444;
             padding: 5px 10px;
             border-radius: 4px;
             margin-bottom: 10px;
         }
+
         button:hover {
             background-color: #333;
         }
+
         #loading {
             display: none;
             margin-top: 10px;
         }
+        
+        #error-toast {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #ef4444;
+            color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 50;
+            max-width: 300px;
+        }
+
+        #last-updated {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(30, 30, 30, 0.8);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--accent);
+            color: white;
+        }
     </style>
-    <link rel="icon" id="dynamic-favicon" href="/static/good.webp" type="image/webp">
 </head>
 <body class="bg-gray-900 text-white p-6">
+    <button id="theme-toggle" class="theme-toggle">
+        <span id="theme-icon">🌙</span>
+        <span id="theme-text">Light Mode</span>
+    </button>
+    <div id="error-toast" role="alert"></div>
+    <div id="last-updated">Last updated: Never</div>
     <h1 class="text-3xl font-bold mb-6 text-center">Air Quality Data Visualization</h1>
 
-    <div class="flex items-center space-x-4 mb-4">
-        <label for="duration">Duration:</label>
-        <select id="duration" class="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1">
-            <option value="-5m">Last 5 Minutes</option>
-            <option value="-15m">Last 15 Minutes</option>
-            <option value="-30m">Last 30 Minutes</option>
-            <option value="-1h">Last Hour</option>
-            <option value="-6h">Last 6 Hours</option>
-            <option value="-12h">Last 12 Hours</option>
-            <option value="-1d">Last 24 Hours</option>
-        </select>
+    <div class="flex flex-col md:flex-row md:items-center gap-4 mb-4 p-4">
+        <div class="flex flex-col sm:flex-row gap-4 flex-wrap">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <label for="duration">Zeitraum:</label>
+                <select id="duration" class="w-full sm:w-auto bg-gray-800 text-white border border-gray-700 rounded px-2 py-1">
+                    <option value="-5m">Letzte 5 Minuten</option>
+                    <option value="-15m">Letzte 15 Minuten</option>
+                    <option value="-30m">Letzte 30 Minuten</option>
+                    <option value="-1h">Letzte Stunde</option>
+                    <option value="-6h">Letzte 6 Stunden</option>
+                    <option value="-12h">Letzte 12 Stunden</option>
+                    <option value="-1d">Letzte 24 Stunden</option>
+                </select>
+            </div>
 
-        <label for="refreshInterval">Auto Refresh Interval:</label>
-        <select id="refreshInterval" class="bg-gray-800 text-white border border-gray-700 rounded px-2 py-1">
-            <option value="60000">1 Minute</option>
-            <option value="300000">5 Minutes</option>
-            <option value="900000">15 Minutes</option>
-            <option value="1800000">30 Minutes</option>
-        </select>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <label for="refreshInterval">Auto-Aktualisierung:</label>
+                <select id="refreshInterval" class="w-full sm:w-auto bg-gray-800 text-white border border-gray-700 rounded px-2 py-1">
+                    <option value="60000">1 Minute</option>
+                    <option value="300000">5 Minuten</option>
+                    <option value="900000">15 Minuten</option>
+                    <option value="1800000">30 Minuten</option>
+                </select>
+            </div>
+        </div>
 
-        <button id="fetchData" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded">Fetch Data</button>
+        <div class="flex flex-col sm:flex-row gap-2 sm:gap-4">
+            <button id="fetchData" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full sm:w-auto">
+                Aktualisieren
+            </button>
+            
+            <button id="exportData" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2 w-full sm:w-auto">
+                <span>📥</span> CSV Export
+            </button>
+        </div>
     </div>
 
     <div id="loading" class="text-yellow-400 mb-4 hidden">Loading data...</div>
 
-    <div class="gauges flex justify-center space-x-6 mb-8">
-        <div class="gauge-container text-center">
-            <h3 id="IAQLabel" class="text-lg font-bold">IAQ: <span id="IAQValue">-</span></h3>
-            <canvas id="IAQGauge"></canvas>
+    <div class="gauges grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 p-4">
+        <div class="gauge-container text-center bg-gray-800 rounded-lg p-4 shadow-lg">
+            <h3 id="IAQLabel" class="text-lg font-bold mb-2">Luftqualität (IAQ): <span id="IAQValue" class="text-blue-400">-</span></h3>
+            <canvas id="IAQGauge" class="mx-auto"></canvas>
         </div>
-        <div class="gauge-container text-center">
-            <h3 id="TemperatureLabel" class="text-lg font-bold">Temperature (°C): <span id="TemperatureValue">-</span></h3>
-            <canvas id="TemperatureGauge"></canvas>
+        <div class="gauge-container text-center bg-gray-800 rounded-lg p-4 shadow-lg">
+            <h3 id="TemperatureLabel" class="text-lg font-bold mb-2">Temperatur (°C): <span id="TemperatureValue" class="text-blue-400">-</span></h3>
+            <canvas id="TemperatureGauge" class="mx-auto"></canvas>
         </div>
-        <div class="gauge-container text-center">
-            <h3 id="HumidityLabel" class="text-lg font-bold">Humidity (%): <span id="HumidityValue">-</span></h3>
-            <canvas id="HumidityGauge"></canvas>
+        <div class="gauge-container text-center bg-gray-800 rounded-lg p-4 shadow-lg">
+            <h3 id="HumidityLabel" class="text-lg font-bold mb-2">Luftfeuchtigkeit (%): <span id="HumidityValue" class="text-blue-400">-</span></h3>
+            <canvas id="HumidityGauge" class="mx-auto"></canvas>
         </div>
     </div>
 
     <div id="charts"></div>
     <script>
-        const metrics = ["Temperature", "Humidity", "Pressure", "IAQ"];
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
+        // Initialize metrics and state
+        const metrics = ["Temperature", "Humidity", "Pressure", "IAQ", "Gas", "Static_IAQ", "eCO2", "bVOCe"];
         const charts = {};
         let autoRefreshInterval;
+        let gaugesInitialized = false;
+
+        // Define interval mapping for different time ranges
+        const intervalMapping = {
+            "-5m": "10s",
+            "-15m": "30s",
+            "-30m": "1m",
+            "-1h": "2m",
+            "-6h": "5m",
+            "-12h": "10m",
+            "-1d": "15m"
+        };
+
+        // Ensure gauges are properly initialized
+        function ensureGaugesInitialized() {
+            if (!gaugesInitialized) {
+                console.log("Initializing gauges...");
+                initializeGauges();
+                gaugesInitialized = true;
+            }
+        }
+
+        // Initialize everything on page load
+        window.addEventListener('load', async () => {
+            ensureGaugesInitialized();
+            await fetchData(); // Initial data load
+            autoRefreshInterval = setInterval(fetchData, document.getElementById('refreshInterval').value);
+        });
+
+        // Theme management
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            
+            const icon = document.getElementById('theme-icon');
+            const text = document.getElementById('theme-text');
+            
+            if (theme === 'dark') {
+                icon.textContent = '🌙';
+                text.textContent = 'Light Mode';
+            } else {
+                icon.textContent = '☀️';
+                text.textContent = 'Dark Mode';
+            }
+
+            // Update chart colors
+            Object.values(charts).forEach(chart => {
+                const newColor = theme === 'dark' ? '#e0e0e0' : '#374151';
+                chart.options.scales.x.ticks.color = newColor;
+                chart.options.scales.y.ticks.color = newColor;
+                chart.options.plugins.legend.labels.color = newColor;
+                chart.update();
+            });
+        }
+
+        // Initialize theme
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        setTheme(savedTheme);
+
+        // Theme toggle handler
+        document.getElementById('theme-toggle').addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+        });
 
         async function fetchData() {
             const duration = document.getElementById('duration').value;
             document.getElementById('loading').style.display = 'block';
 
-            // Define adaptive intervals based on selected duration
-            const intervalMapping = {
-                "-5m": "10s",
-                "-15m": "30s",
-                "-30m": "1m",
-                "-1h": "2m",
-                "-6h": "5m",
-                "-12h": "10m",
-                "-1d": "15m"
-            };
-
-            // Determine interval based on the duration
-            const interval = intervalMapping[duration] || "1m";  // Default to 1 minute if not found
-
             try {
+                // Ensure gauges are initialized
+                ensureGaugesInitialized();
+
+                const interval = intervalMapping[duration] || "1m";
                 const response = await fetch(`/api/data?duration=${duration}&interval=${interval}`);
+                
                 if (!response.ok) {
-                    throw new Error('No data received from server.');
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                if (Object.keys(data).length === 0) {
-                    throw new Error('Received empty data.');
+                
+                if (!data || Object.keys(data).length === 0) {
+                    throw new Error('Keine Daten vom Server erhalten');
                 }
 
-                updateGauges(data.latest || {});
+                // Update UI with received data
+                if (data.latest) {
+                    updateGauges(data.latest);
+                    updateFavicon(data.latest.IAQ);
+                } else {
+                    console.warn("Keine aktuellen Daten verfügbar");
+                }
+
+                // Update charts and timestamp
                 updateCharts(data);
+                updateLastUpdated();
+                hideError();
+
+                console.log("Data updated successfully:", {
+                    latest: data.latest,
+                    metrics: Object.keys(data).filter(key => key !== 'latest')
+                });
+
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('Fehler beim Datenabruf:', error);
+                showError(error.message || 'Fehler beim Laden der Daten');
             } finally {
                 document.getElementById('loading').style.display = 'none';
             }
         }
 
+        async function exportData() {
+            const duration = document.getElementById('duration').value;
+            const interval = document.getElementById('refreshInterval').value;
+            
+            try {
+                document.getElementById('loading').style.display = 'block';
+                
+                const response = await fetch(`/api/export?duration=${duration}&interval=${interval}`);
+                if (!response.ok) throw new Error('Export fehlgeschlagen');
+                
+                // Get filename from Content-Disposition header if available
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = 'air_quality_data.csv';
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename=(.+)/);
+                    if (filenameMatch) filename = filenameMatch[1];
+                }
+                
+                // Create blob and download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                
+                showSuccess('Daten erfolgreich exportiert');
+            } catch (error) {
+                console.error('Export error:', error);
+                showError('Fehler beim Exportieren der Daten');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            const errorToast = document.getElementById('error-toast');
+            errorToast.textContent = message;
+            errorToast.style.display = 'block';
+            setTimeout(() => {
+                errorToast.style.display = 'none';
+            }, 5000);
+        }
+
+        function hideError() {
+            document.getElementById('error-toast').style.display = 'none';
+        }
+
+        function updateLastUpdated() {
+            const now = new Date();
+            const formattedDate = now.toLocaleString('de-DE', {
+                dateStyle: 'short',
+                timeStyle: 'medium'
+            });
+            document.getElementById('last-updated').textContent = `Zuletzt aktualisiert: ${formattedDate}`;
+        }
 
         function updateCharts(data) {
             const chartsContainer = document.getElementById('charts');
@@ -192,27 +436,49 @@
                             data: {
                                 labels: displayedLabels,
                                 datasets: [{
-                                    label: metric,
+                                    label: getMetricLabel(metric),
                                     data: displayedValues,
-                                    borderColor: 'rgba(75, 192, 192, 1)',
-                                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                    fill: false,
+                                    borderColor: getMetricColor(metric),
+                                    backgroundColor: getMetricBackgroundColor(metric),
+                                    fill: true,
                                     tension: 0.1,
-                                    pointRadius: 0,
-                                    pointHoverRadius: 0
+                                    pointRadius: window.innerWidth < 768 ? 2 : 0,
+                                    pointHoverRadius: 4
                                 }]
                             },
                             options: {
                                 maintainAspectRatio: false,
                                 responsive: true,
+                                interaction: {
+                                    mode: 'nearest',
+                                    axis: 'x',
+                                    intersect: false
+                                },
                                 plugins: {
-                                    legend: { display: true },
-                                    tooltip: { enabled: true }
+                                    legend: { 
+                                        display: true,
+                                        position: window.innerWidth < 768 ? 'bottom' : 'top'
+                                    },
+                                    tooltip: { 
+                                        enabled: true,
+                                        mode: 'index',
+                                        intersect: false
+                                    }
                                 },
                                 scales: {
                                     x: {
                                         display: true,
-                                        ticks: { autoSkip: true, maxTicksLimit: maxLabels }
+                                        ticks: { 
+                                            autoSkip: true, 
+                                            maxTicksLimit: window.innerWidth < 768 ? 6 : maxLabels,
+                                            maxRotation: window.innerWidth < 768 ? 45 : 0
+                                        }
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        grid: {
+                                            color: 'rgba(255, 255, 255, 0.1)'
+                                        }
                                     }
                                 }
                             }
@@ -222,16 +488,20 @@
             });
         }
 
+        function showSuccess(message) {
+            const successToast = document.createElement('div');
+            successToast.className = 'fixed bottom-20 right-5 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+            successToast.textContent = message;
+            document.body.appendChild(successToast);
+            setTimeout(() => successToast.remove(), 3000);
+        }
+
+        document.getElementById('exportData').addEventListener('click', exportData);
 
         document.getElementById('fetchData').addEventListener('click', fetchData);
 
         document.getElementById('refreshInterval').addEventListener('change', () => {
             clearInterval(autoRefreshInterval);
-            autoRefreshInterval = setInterval(fetchData, document.getElementById('refreshInterval').value);
-        });
-
-        window.addEventListener('load', () => {
-            fetchData();
             autoRefreshInterval = setInterval(fetchData, document.getElementById('refreshInterval').value);
         });
 
@@ -292,24 +562,49 @@
             ]);
         }
 
-        function updateGauge(gauge, value) {
-            if (gauge && typeof value === 'number') {
-                gauge.set(value);
+        function updateGauges(data) {
+            if (!data) {
+                console.warn("Keine Daten für Gauge-Update erhalten");
+                return;
             }
+
+            // Ensure gauges are initialized
+            ensureGaugesInitialized();
+
+            // Update each gauge if data is available
+            const updates = [
+                { gauge: iaqGauge, value: data.IAQ, element: 'IAQValue' },
+                { gauge: temperatureGauge, value: data.Temperature, element: 'TemperatureValue' },
+                { gauge: humidityGauge, value: data.Humidity, element: 'HumidityValue' }
+            ];
+
+            updates.forEach(({ gauge, value, element }) => {
+                if (value !== undefined) {
+                    try {
+                        gauge.set(value);
+                        document.getElementById(element).textContent = value.toFixed(2);
+                    } catch (error) {
+                        console.error(`Fehler beim Update von ${element}:`, error);
+                    }
+                }
+            });
         }
 
-        function updateGauges(data) {
-            if (data.IAQ !== undefined) {
-                updateGauge(iaqGauge, data.IAQ);
-                document.getElementById('IAQValue').textContent = data.IAQ.toFixed(2);
+        function updateGauge(gauge, value) {
+            if (!gauge) {
+                console.warn("Gauge nicht initialisiert");
+                return;
             }
-            if (data.Temperature !== undefined) {
-                updateGauge(temperatureGauge, data.Temperature);
-                document.getElementById('TemperatureValue').textContent = data.Temperature.toFixed(2);
+            
+            if (typeof value !== 'number') {
+                console.warn("Ungültiger Wert für Gauge:", value);
+                return;
             }
-            if (data.Humidity !== undefined) {
-                updateGauge(humidityGauge, data.Humidity);
-                document.getElementById('HumidityValue').textContent = data.Humidity.toFixed(2);
+
+            try {
+                gauge.set(value);
+            } catch (error) {
+                console.error("Fehler beim Gauge-Update:", error);
             }
         }
 
@@ -327,61 +622,53 @@
             favicon.href = filePath;
         }
 
-        async function fetchLatestData() {
-            try {
-                const response = await fetch("/api/latest");
-                if (!response.ok) throw new Error("Network response was not OK");
-
-                const data = await response.json();
-                console.log("Latest Data Received:", data);  // Debugging output
-
-                // Ensure gauges are initialized before updating
-                if (!iaqGauge || !temperatureGauge || !humidityGauge) {
-                    console.warn("Gauges not initialized yet, initializing now...");
-                    initializeGauges();
-                }
-
-                // Debugging: Check received data values
-                console.log("Updating Gauges with:", JSON.stringify(data));
-
-                // Update Gauges
-                if (data.IAQ !== undefined) {
-                    updateGauge(iaqGauge, data.IAQ);
-                    document.getElementById("IAQValue").textContent = data.IAQ.toFixed(2);
-                } else {
-                    console.warn("IAQ data missing from API response");
-                }
-
-                if (data.Temperature !== undefined) {
-                    updateGauge(temperatureGauge, data.Temperature);
-                    document.getElementById("TemperatureValue").textContent = data.Temperature.toFixed(2);
-                } else {
-                    console.warn("Temperature data missing");
-                }
-
-                if (data.Humidity !== undefined) {
-                    updateGauge(humidityGauge, data.Humidity);
-                    document.getElementById("HumidityValue").textContent = data.Humidity.toFixed(2);
-                } else {
-                    console.warn("Humidity data missing");
-                }
-
-                // Update Favicon (if IAQ is valid)
-                if (data.IAQ !== undefined) updateFavicon(data.IAQ);
-
-            } catch (error) {
-                console.error("Error fetching latest data:", error);
-            }
+        function getMetricLabel(metric) {
+            const labels = {
+                'Temperature': 'Temperatur (°C)',
+                'Humidity': 'Luftfeuchtigkeit (%)',
+                'Pressure': 'Luftdruck (hPa)',
+                'IAQ': 'Luftqualität (IAQ)',
+                'Gas': 'Gas Widerstand (Ω)',
+                'Static_IAQ': 'Statische IAQ',
+                'eCO2': 'CO₂-Äquivalent (ppm)',
+                'bVOCe': 'VOC-Äquivalent (ppm)'
+            };
+            return labels[metric] || metric;
         }
 
-        // Poll every 10 seconds
-        setInterval(fetchLatestData, 10000);
+        function getMetricColor(metric) {
+            const colors = {
+                'Temperature': 'rgb(255, 99, 132)',
+                'Humidity': 'rgb(54, 162, 235)',
+                'Pressure': 'rgb(255, 159, 64)',
+                'IAQ': 'rgb(75, 192, 192)',
+                'Gas': 'rgb(153, 102, 255)',
+                'Static_IAQ': 'rgb(255, 205, 86)',
+                'eCO2': 'rgb(201, 203, 207)',
+                'bVOCe': 'rgb(138, 43, 226)'
+            };
+            return colors[metric] || 'rgb(75, 192, 192)';
+        }
 
-        // Ensure gauges initialize on page load
-        window.addEventListener("load", () => {
-            initializeGauges();
-            fetchLatestData();  // Fetch data once immediately
+        function getMetricBackgroundColor(metric) {
+            const color = getMetricColor(metric);
+            return color.replace('rgb', 'rgba').replace(')', ', 0.2)');
+        }
+
+        // Füge Resize-Handler für Chart-Anpassung hinzu
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                Object.values(charts).forEach(chart => {
+                    chart.options.plugins.legend.position = window.innerWidth < 768 ? 'bottom' : 'top';
+                    chart.options.scales.x.ticks.maxTicksLimit = window.innerWidth < 768 ? 6 : 10;
+                    chart.options.scales.x.ticks.maxRotation = window.innerWidth < 768 ? 45 : 0;
+                    chart.update();
+                });
+            }, 250);
         });
     </script>
 </body>
 </html>
+``` 
